@@ -3,6 +3,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Inventory_System.h"
+#include "Interfaces/Inv_HighlightInterface.h"
 #include "Items/Components/Inv_ItemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/Widgets/HUD/Inv_HUDWidget.h"
@@ -81,17 +82,39 @@ void AInv_PlayerController::TraceForItem()
 	LastActor = ThisActor;
 	ThisActor = HitResult.GetActor();
 
+	// 
 	if (!ThisActor.IsValid())
 	{
 		if (IsValid(HUDWidget)) HUDWidget->HidePickupMessage();
 	}
 
+	// Point at the same object
 	if (ThisActor == LastActor) return;
+
+	// Hit interactable
 	if (ThisActor.IsValid())
 	{
+		// Show interaction message based on item 
 		UInv_ItemComponent* ItemComponent = ThisActor->FindComponentByClass<UInv_ItemComponent>();
 		if (!IsValid(ItemComponent) || !IsValid(HUDWidget)) return;
-		
 		HUDWidget->ShowPickupMessage(ItemComponent->GetPickupMessage());
+
+		// Start Highlighting the interactable
+		UActorComponent* HighlightableComponent = ThisActor->FindComponentByInterface(UInv_HighlightInterface::StaticClass());
+		if (IsValid(HighlightableComponent))
+		{
+			IInv_HighlightInterface::Execute_HighLight(HighlightableComponent);
+		}
+	}
+
+	// End Hit interactable
+	if (LastActor.IsValid())
+	{
+		// Stop Highlighting the interactable
+		UActorComponent* HighlightableComponent = LastActor->FindComponentByInterface(UInv_HighlightInterface::StaticClass());
+		if (IsValid(HighlightableComponent))
+		{
+			IInv_HighlightInterface::Execute_UnHighLight(HighlightableComponent);
+		}
 	}
 }
