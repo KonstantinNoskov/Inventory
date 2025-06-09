@@ -3,12 +3,15 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Inventory_System.h"
+#include "Items/Components/Inv_ItemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/Widgets/HUD/Inv_HUDWidget.h"
 
 AInv_PlayerController::AInv_PlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
+
+	ItemTraceChannel = ECC_GameTraceChannel1;
 }
 
 void AInv_PlayerController::BeginPlay()
@@ -70,25 +73,25 @@ void AInv_PlayerController::TraceForItem()
 	FVector Forward;
 
 	if (!UGameplayStatics::DeprojectScreenToWorld(this, ViewportCenter, TraceStart, Forward)) return;
-	
 	const FVector TraceEnd = TraceStart + Forward * TraceLength;
 
 	FHitResult HitResult;
-
 	GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ItemTraceChannel);
 
 	LastActor = ThisActor;
 	ThisActor = HitResult.GetActor();
 
+	if (!ThisActor.IsValid())
+	{
+		if (IsValid(HUDWidget)) HUDWidget->HidePickupMessage();
+	}
+
 	if (ThisActor == LastActor) return;
 	if (ThisActor.IsValid())
 	{
-		UE_LOG(LogInventory, Warning, TEXT("Start tracing a new actor - %s"), *ThisActor->GetName());
+		UInv_ItemComponent* ItemComponent = ThisActor->FindComponentByClass<UInv_ItemComponent>();
+		if (!IsValid(ItemComponent) || !IsValid(HUDWidget)) return;
+		
+		HUDWidget->ShowPickupMessage(ItemComponent->GetPickupMessage());
 	}
-
-	if (LastActor.IsValid())
-	{
-		UE_LOG(LogInventory, Error, TEXT("Stop tracing a new actor - %s"), *LastActor->GetName());
-	}
-	
 }
