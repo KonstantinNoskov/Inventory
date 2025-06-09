@@ -3,7 +3,13 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Inventory_System.h"
+#include "Kismet/GameplayStatics.h"
 #include "UI/Widgets/HUD/Inv_HUDWidget.h"
+
+AInv_PlayerController::AInv_PlayerController()
+{
+	PrimaryActorTick.bCanEverTick = true;
+}
 
 void AInv_PlayerController::BeginPlay()
 {
@@ -31,6 +37,12 @@ void AInv_PlayerController::SetupInputComponent()
 	EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AInv_PlayerController::PrimaryInteract);
 }
 
+void AInv_PlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	TraceForItem();
+}
+
 void AInv_PlayerController::PrimaryInteract()
 {
 	UE_LOG(LogInventory, Display, TEXT("Primary Interact"));
@@ -45,4 +57,38 @@ void AInv_PlayerController::CreateHUDWidget()
 	{
 		HUDWidget->AddToViewport(0);
 	}
+}
+
+void AInv_PlayerController::TraceForItem()
+{
+	if (!IsValid(GEngine) || !IsValid(GEngine->GameViewport)) return;
+	FVector2D ViewportSize;
+	GEngine->GameViewport->GetViewportSize(ViewportSize);
+	const FVector2d ViewportCenter = ViewportSize * 0.5f;
+
+	FVector TraceStart;
+	FVector Forward;
+
+	if (!UGameplayStatics::DeprojectScreenToWorld(this, ViewportCenter, TraceStart, Forward)) return;
+	
+	const FVector TraceEnd = TraceStart + Forward * TraceLength;
+
+	FHitResult HitResult;
+
+	GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ItemTraceChannel);
+
+	LastActor = ThisActor;
+	ThisActor = HitResult.GetActor();
+
+	if (ThisActor == LastActor) return;
+	if (ThisActor.IsValid())
+	{
+		UE_LOG(LogInventory, Warning, TEXT("Start tracing a new actor - %s"), *ThisActor->GetName());
+	}
+
+	if (LastActor.IsValid())
+	{
+		UE_LOG(LogInventory, Error, TEXT("Stop tracing a new actor - %s"), *LastActor->GetName());
+	}
+	
 }
